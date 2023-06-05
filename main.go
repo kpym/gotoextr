@@ -10,8 +10,8 @@
 //     ...
 //   },
 //     ...
-//   ]
-// The file is very large, so we read is using json.Decoder
+// ]
+// The file is very large, so we read it using json.Decoder
 
 package main
 
