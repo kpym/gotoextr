@@ -28,24 +28,26 @@ import (
 	"github.com/docopt/docopt-go"
 )
 
-var (
-	// The version that is set by goreleaser
-	version = "dev"
-	// The usage string
-	usage = "hist2gpx [version: " + version + "]" + ` extract history data from Google Location History.
+// The version that is set by goreleaser
+var version = "dev"
+
+// The usage string
+var usage = "hist2gpx [version: " + version + "]" + ` extract history data from Google Location History.
 	
-  Usage:
+Usage:
   extract_history.go [-h] -s <start> [-e <end>] [-a <accuracy>] [-o <output>] <input>
   
-  Options:
+Options:
   -h --help       Show this screen.
   -s <start>      Start date in YYYY-MM-DD format
   -e <end>        End date in YYYY-MM-DD format [default: <start>]
   -a <accuracy>   Maximum accuracy in meters [default: 40]
-  -i <input>      Input file name [default: Records.json]
   -o <output>     Output file name [default: history_<start>_<end>.gpx]
-  `
-)
+  <input>         Input file name [default: Records.json]
+
+Examples:
+  hist2gpx -s 2012-01-01 -e 2012-01-31 -a 40 -o history_2012-01.gpx takeout.zip
+`
 
 type Location struct {
 	LatitudeE7  int    `json:"latitudeE7"`
