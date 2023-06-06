@@ -298,7 +298,8 @@ func main() {
 			lastLat, lastLon = l.LatitudeE7, l.LongitudeE7
 			fmt.Fprintf(outfile, locFormat, e7toDec(l.LatitudeE7), e7toDec(l.LongitudeE7), l.Timestamp, l.Accuracy)
 		}
-		if r%10000 == 0 {
+		// display the progress every 0x8000=32768 records
+		if r&0x7fff == 0 {
 			print(r, w, s, t, l.Timestamp, time.Since(now).Seconds())
 		}
 	}
