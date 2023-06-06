@@ -1,18 +1,20 @@
-// Read Records.json and extract history data
+// Read Records.json and extract history data.
 // The input date is json with the following format
 // {
 // "locations": [
-//   {
-//     "latitudeE7": 506553765,
-//     "longitudeE7": 30632229,
-//     "accuracy": 24,
-//     "timestamp": "2012-01-27T21:14:42.352Z"
-//     ...
-//   },
-//     ...
+//
+//	{
+//	  "latitudeE7": 506553765,
+//	  "longitudeE7": 30632229,
+//	  "accuracy": 24,
+//	  "timestamp": "2012-01-27T21:14:42.352Z"
+//	  ...
+//	},
+//	  ...
+//
 // ]
-// The file is very large, so we read it using json.Decoder
-
+// The file is very large, so we read it using json.Decoder.
+// If the file is .zip (smaller) we try to read it in memory.
 package main
 
 import (
@@ -54,8 +56,11 @@ Examples:
   hist2gpx -s 2012-01-01 -e 2012-01-31 -a 40 takeout.zip
 `
 
+// IntString is a string that can be unmarshalled from an int
+// This avoid number parsing
 type IntString string
 
+// Location is the struct for the location data
 type Location struct {
 	LatitudeE7  IntString `json:"latitudeE7"`
 	LongitudeE7 IntString `json:"longitudeE7"`
@@ -69,6 +74,7 @@ func (i *IntString) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+// check is a helper function to check for errors
 func check(err error) {
 	if err != nil {
 		fmt.Println(err)
@@ -76,6 +82,10 @@ func check(err error) {
 	}
 }
 
+// locBufSize is the size of the channel buffer for locations
+const locBufSize = 100
+
+// Read the input file and return a channel of locations
 func Read(reader io.Reader) chan Location {
 	// Create a decoder
 	decoder := json.NewDecoder(reader)
@@ -97,7 +107,7 @@ func Read(reader io.Reader) chan Location {
 	}
 
 	// Create a channel to send the locations
-	locations := make(chan Location, 1000)
+	locations := make(chan Location, locBufSize)
 
 	go func() {
 		// start reading the array
@@ -115,6 +125,7 @@ func Read(reader io.Reader) chan Location {
 	return locations
 }
 
+// header, locFormat, newTrack, newSegment, footer are the parts of the gpx file
 const (
 	header = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="Google Latitude JSON Converter" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
@@ -143,16 +154,20 @@ const (
 `
 )
 
+// nextDay returns the next day in YYYY-MM-DD format
 func nextDay(date string) string {
 	t, err := time.Parse("2006-01-02", date)
 	check(err)
 	return t.AddDate(0, 0, 1).Format("2006-01-02")
 }
 
+// e7toDec converts a latitude or longitude from e7 format to decimal
 func e7toDec(e7 IntString) string {
 	return string(e7[:len(e7)-7] + "." + e7[len(e7)-7:])
 }
 
+// acceptAccuracy returns true if the accuracy is less than max
+// it works with strings to avoid number parsing
 func acceptAccuracy(a IntString, max string) bool {
 	if len(a) != len(max) {
 		return len(a) <= len(max)
@@ -160,6 +175,9 @@ func acceptAccuracy(a IntString, max string) bool {
 	return string(a) <= max
 }
 
+// sameDigits returns the number of digits in common between two coordinates
+// for example 987654321 which represent 98.7654321 and 987650321 which represent 98.7650321
+// have 3 decimal digits (after the point) in common
 func sameDigits(a, b IntString) int {
 	// convert with atoi
 	na, _ := strconv.Atoi(string(a))
@@ -173,16 +191,6 @@ func sameDigits(a, b IntString) int {
 	}
 	strDiff := strconv.Itoa(diff)
 	return 7 - len(strDiff)
-
-	// if len(a) != len(b) {
-	// 	return 0
-	// }
-	// for i := 0; i < len(a) && i < len(b); i++ {
-	// 	if a[i] != b[i] {
-	// 		return 7 + i - len(a) // 0 corresponds the first digit after the decimal point
-	// 	}
-	// }
-	// return 7
 }
 
 func main() {
@@ -192,6 +200,7 @@ func main() {
 	writer := uilive.New()
 	writer.Start()
 	defer writer.Stop()
+	// the info print function
 	print := func(r, w, s, t int, timestamp string, sec float64) {
 		fmt.Fprintf(writer, "Read %d positions in %.2f seconds", r, sec)
 		if timestamp != "" {
@@ -243,12 +252,12 @@ func main() {
 			// associate a zip reader to the content
 			zf, err = zip.NewReader(bytes.NewReader(content), int64(len(content)))
 			check(err)
-			fmt.Println("Using zip file in memory")
 		} else {
-			// Open the zip file
-			zf, err := zip.OpenReader(inputname)
+			// Cant read entire file in memory, so open the zip file from disk
+			zfc, err := zip.OpenReader(inputname)
 			check(err)
-			defer zf.Close()
+			defer zfc.Close()
+			zf = &zfc.Reader
 		}
 		// Find the file inside the zip
 		for _, f := range zf.File {
@@ -259,6 +268,7 @@ func main() {
 			}
 		}
 	} else {
+		// if the file is not a zip, it should be the Records.json file
 		file, err := os.Open(inputname)
 		check(err)
 		defer file.Close()
@@ -279,12 +289,22 @@ func main() {
 	// Write the header
 	outfile.WriteString(header)
 
+	// Some counters :
+	// r : number of positions read
+	// w : number of positions written
+	// t : number of tracks written
+	// s : number of segments written
 	r, w, t, s := 0, 0, 0, 0
+	// the last position used to detect new segments and tracks
 	var lastLat, lastLon IntString
+	// loop over the locations
 	for l := range locations {
 		r++
+		// check if the location is in the time range and has the required accuracy
 		if l.Timestamp >= start && l.Timestamp < endNext && acceptAccuracy(l.Accuracy, accuracy) {
 			if w > 0 {
+				// if it is not the first location, check if the distance from the previous one
+				// requires a new segment or a new track
 				if sameDigits(lastLat, l.LatitudeE7) < tp || sameDigits(lastLon, l.LongitudeE7) < tp {
 					t++
 					s++
@@ -296,6 +316,7 @@ func main() {
 			}
 			w++
 			lastLat, lastLon = l.LatitudeE7, l.LongitudeE7
+			// write the location in the output file
 			fmt.Fprintf(outfile, locFormat, e7toDec(l.LatitudeE7), e7toDec(l.LongitudeE7), l.Timestamp, l.Accuracy)
 		}
 		// display the progress every 0x8000=32768 records
