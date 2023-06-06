@@ -28,6 +28,7 @@ import (
 
 	"github.com/docopt/docopt-go"
 	"github.com/goccy/go-json"
+	"github.com/gosuri/uilive"
 )
 
 // The version that is set by goreleaser
@@ -187,6 +188,18 @@ func sameDigits(a, b IntString) int {
 func main() {
 	// strtup time
 	now := time.Now()
+	// new terminal writer
+	writer := uilive.New()
+	writer.Start()
+	defer writer.Stop()
+	print := func(r, w, s, t int, timestamp string, sec float64) {
+		fmt.Fprintf(writer, "Read %d positions in %.2f seconds", r, sec)
+		if timestamp != "" {
+			fmt.Fprintf(writer, " until %s", timestamp)
+		}
+		fmt.Fprintln(writer)
+		fmt.Fprintf(writer.Newline(), "Wrote %d positions in %d segments in %d tracks\n", w, s, t)
+	}
 
 	// Parse the command line
 	arguments, err := docopt.ParseDoc(usage)
@@ -285,10 +298,13 @@ func main() {
 			lastLat, lastLon = l.LatitudeE7, l.LongitudeE7
 			fmt.Fprintf(outfile, locFormat, e7toDec(l.LatitudeE7), e7toDec(l.LongitudeE7), l.Timestamp, l.Accuracy)
 		}
+		if r%10000 == 0 {
+			print(r, w, s, t, l.Timestamp, time.Since(now).Seconds())
+		}
 	}
-
 	// Write the footer
 	outfile.WriteString(footer)
-	duration := time.Since(now).Seconds()
-	fmt.Printf("Read %d records, wrote %d records in %d segments in %d tracks for %.2f seconds\n", r, w, s, t, duration)
+
+	// The end
+	print(r, w, s, t, "", time.Since(now).Seconds())
 }
