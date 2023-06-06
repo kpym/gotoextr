@@ -2,4 +2,7 @@ module github.com/kpym/hist2gpx
 
 go 1.20
 
-require github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
+require (
+	github.com/docopt/docopt-go v0.0.0-20180111231733-ee0de3bc6815
+	github.com/goccy/go-json v0.10.2
+)

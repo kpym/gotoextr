@@ -18,14 +18,16 @@ package main
 import (
 	"archive/zip"
 	"bufio"
-	"encoding/json"
+	"bytes"
 	"fmt"
 	"io"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	"github.com/docopt/docopt-go"
+	"github.com/goccy/go-json"
 )
 
 // The version that is set by goreleaser
@@ -35,25 +37,35 @@ var version = "dev"
 var usage = "hist2gpx [version: " + version + "]" + ` extract history data from Google Location History.
 	
 Usage:
-  extract_history.go [-h] -s <start> [-e <end>] [-a <accuracy>] [-o <output>] <input>
+  hist2gpx [-h] -s <start> [options] <input>
   
 Options:
-  -h --help       Show this screen.
-  -s <start>      Start date in YYYY-MM-DD format
-  -e <end>        End date in YYYY-MM-DD format [default: <start>]
-  -a <accuracy>   Maximum accuracy in meters [default: 40]
-  -o <output>     Output file name [default: history_<start>_<end>.gpx]
-  <input>         Input file name [default: Records.json]
+  -h --help              Show this screen.
+  -s <start>             Start date in YYYY-MM-DD format
+  -e <end>               End date in YYYY-MM-DD format [default: <start>]
+  -a <accuracy>          Keeps only locations with accuracy less than <accuracy> meters [default: 40]
+	-tp <tp>               New track if coordinates have less than <tp> digits in common [default: 1]
+	-sp <sp>               New segment if coordinates have less than <sp> digits in common [default: 2]
+  -o <output>            Output file name [default: history_<start>_<end>.gpx]
+  <input>                Input file name (zip or json)
 
 Examples:
-  hist2gpx -s 2012-01-01 -e 2012-01-31 -a 40 -o history_2012-01.gpx takeout.zip
+  hist2gpx -s 2012-01-01 -e 2012-01-31 -a 40 takeout.zip
 `
 
+type IntString string
+
 type Location struct {
-	LatitudeE7  int    `json:"latitudeE7"`
-	LongitudeE7 int    `json:"longitudeE7"`
-	Accuracy    int    `json:"accuracy"`
-	Timestamp   string `json:"timestamp"`
+	LatitudeE7  IntString `json:"latitudeE7"`
+	LongitudeE7 IntString `json:"longitudeE7"`
+	Accuracy    IntString `json:"accuracy"`
+	Timestamp   string    `json:"timestamp"`
+}
+
+// Json unmashalling for IntString
+func (i *IntString) UnmarshalJSON(data []byte) error {
+	*i = IntString(data)
+	return nil
 }
 
 func check(err error) {
@@ -111,10 +123,18 @@ const (
   <trk>
     <trkseg>`
 	locFormat = `
-      <trkpt lat="%.7f" lon="%.7f">
+      <trkpt lat="%s" lon="%s">
         <time>%s</time>
-        <accuracy>%d</accuracy>
+        <accuracy>%s</accuracy>
       </trkpt>`
+	newTrack = `
+    </trkseg>
+  </trk>
+  <trk>
+    <trkseg>`
+	newSegment = `
+    </trkseg>
+    <trkseg>`
 	footer = `
     </trkseg>
   </trk>
@@ -128,6 +148,42 @@ func nextDay(date string) string {
 	return t.AddDate(0, 0, 1).Format("2006-01-02")
 }
 
+func e7toDec(e7 IntString) string {
+	return string(e7[:len(e7)-7] + "." + e7[len(e7)-7:])
+}
+
+func acceptAccuracy(a IntString, max string) bool {
+	if len(a) != len(max) {
+		return len(a) <= len(max)
+	}
+	return string(a) <= max
+}
+
+func sameDigits(a, b IntString) int {
+	// convert with atoi
+	na, _ := strconv.Atoi(string(a))
+	nb, _ := strconv.Atoi(string(b))
+	if na == nb {
+		return 7
+	}
+	diff := na - nb
+	if diff < 0 {
+		diff = -diff
+	}
+	strDiff := strconv.Itoa(diff)
+	return 7 - len(strDiff)
+
+	// if len(a) != len(b) {
+	// 	return 0
+	// }
+	// for i := 0; i < len(a) && i < len(b); i++ {
+	// 	if a[i] != b[i] {
+	// 		return 7 + i - len(a) // 0 corresponds the first digit after the decimal point
+	// 	}
+	// }
+	// return 7
+}
+
 func main() {
 	// strtup time
 	now := time.Now()
@@ -135,6 +191,7 @@ func main() {
 	// Parse the command line
 	arguments, err := docopt.ParseDoc(usage)
 	check(err)
+
 	// get the arguments
 	start, err := arguments.String("-s")
 	check(err)
@@ -144,7 +201,11 @@ func main() {
 	end, err := arguments.String("-e")
 	check(err)
 	endNext := nextDay(end)
-	accuracy, err := arguments.Int("-a")
+	accuracy, err := arguments.String("-a")
+	check(err)
+	tp, err := arguments.Int("-tp")
+	check(err)
+	sp, err := arguments.Int("-sp")
 	check(err)
 	inputname, err := arguments.String("<input>")
 	check(err)
@@ -162,10 +223,20 @@ func main() {
 	var input io.Reader
 	// If the file is .zip, access the file inside the zip
 	if strings.HasSuffix(inputname, ".zip") {
-		// Open the zip file
-		zf, err := zip.OpenReader(inputname)
-		check(err)
-		defer zf.Close()
+		// try to read all the file in memory
+		var zf *zip.Reader
+		content, err := os.ReadFile(inputname)
+		if err == nil {
+			// associate a zip reader to the content
+			zf, err = zip.NewReader(bytes.NewReader(content), int64(len(content)))
+			check(err)
+			fmt.Println("Using zip file in memory")
+		} else {
+			// Open the zip file
+			zf, err := zip.OpenReader(inputname)
+			check(err)
+			defer zf.Close()
+		}
 		// Find the file inside the zip
 		for _, f := range zf.File {
 			if strings.HasSuffix(f.Name, "/Records.json") {
@@ -195,17 +266,29 @@ func main() {
 	// Write the header
 	outfile.WriteString(header)
 
-	r, w := 0, 0
+	r, w, t, s := 0, 0, 0, 0
+	var lastLat, lastLon IntString
 	for l := range locations {
 		r++
-		if l.Timestamp >= start && l.Timestamp < endNext && l.Accuracy <= accuracy {
+		if l.Timestamp >= start && l.Timestamp < endNext && acceptAccuracy(l.Accuracy, accuracy) {
+			if w > 0 {
+				if sameDigits(lastLat, l.LatitudeE7) < tp || sameDigits(lastLon, l.LongitudeE7) < tp {
+					t++
+					s++
+					outfile.WriteString(newTrack)
+				} else if sameDigits(lastLat, l.LatitudeE7) < sp || sameDigits(lastLon, l.LongitudeE7) < sp {
+					s++
+					outfile.WriteString(newSegment)
+				}
+			}
 			w++
-			fmt.Fprintf(outfile, locFormat, float64(l.LatitudeE7)/1e7, float64(l.LongitudeE7)/1e7, l.Timestamp, l.Accuracy)
+			lastLat, lastLon = l.LatitudeE7, l.LongitudeE7
+			fmt.Fprintf(outfile, locFormat, e7toDec(l.LatitudeE7), e7toDec(l.LongitudeE7), l.Timestamp, l.Accuracy)
 		}
 	}
 
 	// Write the footer
 	outfile.WriteString(footer)
-	duration := time.Since(now)
-	fmt.Printf("Read %d records, wrote %d records in %s seconds\n", r, w, duration)
+	duration := time.Since(now).Seconds()
+	fmt.Printf("Read %d records, wrote %d records in %d segments in %d tracks for %.2f seconds\n", r, w, s, t, duration)
 }
