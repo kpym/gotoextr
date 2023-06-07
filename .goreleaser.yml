@@ -1,4 +1,4 @@
-project_name: hist2gpx
+project_name: hist2geo
 before:
   hooks:
     - go mod download

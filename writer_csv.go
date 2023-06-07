@@ -13,7 +13,7 @@ const (
 
 func NewCSVWriter(w io.Writer) Writer {
 	// compile the templates
-	locTemplate := template.New("gpx").Funcs(funcMap)
+	locTemplate := template.New("csv").Funcs(funcMap)
 	locTemplate = template.Must(locTemplate.Parse(csvLocTemplate))
 
 	return &TemplateWriter{

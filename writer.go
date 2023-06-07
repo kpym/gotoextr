@@ -5,7 +5,7 @@ import (
 	"text/template"
 )
 
-// Writer is an interface for writing GPX, CSV, GeoJSON, etc.
+// Writer is an interface for writing GPX, CSV, KML, etc.
 type Writer interface {
 	// WriteHeader writes the header
 	WriteHeader() error

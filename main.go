@@ -37,10 +37,10 @@ import (
 var version = "dev"
 
 // The usage string
-var usage = "hist2gpx [version: " + version + "]" + ` extract history data from Google Location History.
+var usage = "hist2geo [version: " + version + "]" + ` extract history data from Google Location History.
 
 Usage:
-  hist2gpx [-h] -s <start> [options] <input>
+  hist2geo [-h] -s <start> [options] <input>
   
 Options:
   -h --help              Show this screen.
@@ -54,7 +54,7 @@ Options:
   <input>                Input file name (zip or json)
 
 Examples:
-  hist2gpx -s 2012-01-01 -e 2012-01-31 -a 40 takeout.zip
+  hist2geo -s 2012-01-01 -e 2012-01-31 -a 40 takeout.zip
 `
 
 // IntString is a string that can be unmarshalled from an int
