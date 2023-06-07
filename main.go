@@ -43,15 +43,15 @@ Usage:
   hist2geo [-h] -s <start> [options] <input>
   
 Options:
-  -h --help              Show this screen.
-  -s <start>             Start date in YYYY-MM-DD format
-  -e <end>               End date in YYYY-MM-DD format [default: <start>]
-  -a <accuracy>          Keeps only locations with accuracy less than <accuracy> meters [default: 40]
-  -t <tp>                New track if coordinates have less than <tp> digits in common [default: 1]
-  -g <sp>                New segment if coordinates have less than <sp> digits in common [default: 2]
-  -f <format>  					 Output format (gpx|kml|tcx|csv|nmea) [default: gpx]
-  -o <output>            Output file name [default: history_<start>_<end>.<format>]
-  <input>                Input file name (zip or json)
+  -h --help        Show this screen.
+  -s <start>       Start date in YYYY-MM-DD format
+  -e <end>         End date in YYYY-MM-DD format [default: <start>]
+  -a <accuracy>    Keeps only locations with accuracy less than <accuracy> meters [default: 40]
+  -t <tp>          New track if coordinates have less than <tp> digits in common [default: 1]
+  -g <sp>          New segment if coordinates have less than <sp> digits in common [default: 2]
+  -f <format>      Output format (gpx|kml|tcx|csv|nmea) [default: gpx]
+  -o <output>      Output file name [default: history_<start>_<end>.<format>]
+  <input>          Input file name (zip or json)
 
 Examples:
   hist2geo -s 2012-01-01 -e 2012-01-31 -a 40 takeout.zip

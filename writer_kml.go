@@ -9,18 +9,18 @@ import (
 const (
 	kmlHeader = `<?xml version="1.0" encoding="UTF-8"?>
 <kml xmlns="http://www.opengis.net/kml/2.2">
-  <Document>
-    <name>Location History</name>`
+	<Document>
+		<name>Location History</name>`
 	kmlLocTemplate = `
-    <Placemark>
-      <TimeStamp><when>{{ .Timestamp }}</when></TimeStamp>
-      <ExtendedData>
-        <Data name="accuracy"><value>{{ .Accuracy }}</value></Data>
-      </ExtendedData>
-      <Point><coordinates>{{ .LatitudeE7 | e7todec }},{{ .LongitudeE7 | e7todec }}</coordinates></Point>
-    </Placemark>`
+		<Placemark>
+			<TimeStamp><when>{{ .Timestamp }}</when></TimeStamp>
+			<ExtendedData>
+				<Data name="accuracy"><value>{{ .Accuracy }}</value></Data>
+			</ExtendedData>
+			<Point><coordinates>{{ .LatitudeE7 | e7todec }},{{ .LongitudeE7 | e7todec }}</coordinates></Point>
+		</Placemark>`
 	kmlFooter = `
-  </Document>
+	</Document>
 </kml>
 `
 )
