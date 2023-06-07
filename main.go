@@ -38,7 +38,7 @@ var version = "dev"
 
 // The usage string
 var usage = "hist2gpx [version: " + version + "]" + ` extract history data from Google Location History.
-	
+
 Usage:
   hist2gpx [-h] -s <start> [options] <input>
   
@@ -47,9 +47,10 @@ Options:
   -s <start>             Start date in YYYY-MM-DD format
   -e <end>               End date in YYYY-MM-DD format [default: <start>]
   -a <accuracy>          Keeps only locations with accuracy less than <accuracy> meters [default: 40]
-	-tp <tp>               New track if coordinates have less than <tp> digits in common [default: 1]
-	-sp <sp>               New segment if coordinates have less than <sp> digits in common [default: 2]
-  -o <output>            Output file name [default: history_<start>_<end>.gpx]
+  -t <tp>                New track if coordinates have less than <tp> digits in common [default: 1]
+  -g <sp>                New segment if coordinates have less than <sp> digits in common [default: 2]
+  -f <format>  					 Output format (gpx|kml|tcx|csv|nmea) [default: gpx]
+  -o <output>            Output file name [default: history_<start>_<end>.<format>]
   <input>                Input file name (zip or json)
 
 Examples:
@@ -77,7 +78,7 @@ func (i *IntString) UnmarshalJSON(data []byte) error {
 // check is a helper function to check for errors
 func check(err error) {
 	if err != nil {
-		fmt.Println(err)
+		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
 }
@@ -126,44 +127,12 @@ func Read(reader io.Reader) chan Location {
 }
 
 // header, locFormat, newTrack, newSegment, footer are the parts of the gpx file
-const (
-	header = `<?xml version="1.0" encoding="UTF-8"?>
-<gpx xmlns="http://www.topografix.com/GPX/1/1" version="1.1" creator="Google Latitude JSON Converter" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd">
-  <metadata>
-    <name>Location History</name>
-  </metadata>
-  <trk>
-    <trkseg>`
-	locFormat = `
-      <trkpt lat="%s" lon="%s">
-        <time>%s</time>
-        <accuracy>%s</accuracy>
-      </trkpt>`
-	newTrack = `
-    </trkseg>
-  </trk>
-  <trk>
-    <trkseg>`
-	newSegment = `
-    </trkseg>
-    <trkseg>`
-	footer = `
-    </trkseg>
-  </trk>
-</gpx>
-`
-)
 
 // nextDay returns the next day in YYYY-MM-DD format
 func nextDay(date string) string {
 	t, err := time.Parse("2006-01-02", date)
 	check(err)
 	return t.AddDate(0, 0, 1).Format("2006-01-02")
-}
-
-// e7toDec converts a latitude or longitude from e7 format to decimal
-func e7toDec(e7 IntString) string {
-	return string(e7[:len(e7)-7] + "." + e7[len(e7)-7:])
 }
 
 // acceptAccuracy returns true if the accuracy is less than max
@@ -225,19 +194,28 @@ func main() {
 	endNext := nextDay(end)
 	accuracy, err := arguments.String("-a")
 	check(err)
-	tp, err := arguments.Int("-tp")
+	tp, err := arguments.Int("-t")
 	check(err)
-	sp, err := arguments.Int("-sp")
+	sp, err := arguments.Int("-g")
 	check(err)
 	inputname, err := arguments.String("<input>")
 	check(err)
 	outputname, err := arguments.String("-o")
 	check(err)
-	if outputname == "history_<start>_<end>.gpx" {
+	format, err := arguments.String("-f")
+	check(err)
+	format = strings.ToLower(format)
+	// if format is not one of the allowed, exit
+	switch format {
+	case "gpx", "kml", "tcx", "csv", "nmea": // ok
+	default:
+		check(fmt.Errorf("unknown format %s", format))
+	}
+	if outputname == "history_<start>_<end>.<format>" {
 		if start == end {
-			outputname = fmt.Sprintf("history_%s.gpx", start)
+			outputname = fmt.Sprintf("history_%s.%s", start, format)
 		} else {
-			outputname = fmt.Sprintf("history_%s_%s.gpx", start, end)
+			outputname = fmt.Sprintf("history_%s_%s.%s", start, end, format)
 		}
 	}
 
@@ -286,15 +264,34 @@ func main() {
 	check(err)
 	defer outfile.Close()
 
+	// Create a new writer
+	var output Writer
+	switch format {
+	case "gpx":
+		output = NewGPXWriter(outfile)
+	case "kml":
+		output = NewKMLWriter(outfile)
+	case "tcx":
+		output = NewTCXWriter(outfile)
+	case "csv":
+		output = NewCSVWriter(outfile)
+	case "nmea":
+		output = NewNMEAWriter(outfile)
+	default:
+		// this should never happen
+		panic(fmt.Errorf("unknown format %s, this should be verified before", format))
+	}
+	defer output.Flush()
+
 	// Write the header
-	outfile.WriteString(header)
+	output.WriteHeader()
 
 	// Some counters :
 	// r : number of positions read
 	// w : number of positions written
 	// t : number of tracks written
 	// s : number of segments written
-	r, w, t, s := 0, 0, 0, 0
+	r, w, t, s := 0, 0, 1, 1
 	// the last position used to detect new segments and tracks
 	var lastLat, lastLon IntString
 	// loop over the locations
@@ -308,16 +305,16 @@ func main() {
 				if sameDigits(lastLat, l.LatitudeE7) < tp || sameDigits(lastLon, l.LongitudeE7) < tp {
 					t++
 					s++
-					outfile.WriteString(newTrack)
+					output.WriteNewTrack()
 				} else if sameDigits(lastLat, l.LatitudeE7) < sp || sameDigits(lastLon, l.LongitudeE7) < sp {
 					s++
-					outfile.WriteString(newSegment)
+					output.WriteNewSegment()
 				}
 			}
 			w++
 			lastLat, lastLon = l.LatitudeE7, l.LongitudeE7
 			// write the location in the output file
-			fmt.Fprintf(outfile, locFormat, e7toDec(l.LatitudeE7), e7toDec(l.LongitudeE7), l.Timestamp, l.Accuracy)
+			output.WriteLocation(l)
 		}
 		// display the progress every 0x8000=32768 records
 		if r&0x7fff == 0 {
@@ -325,7 +322,7 @@ func main() {
 		}
 	}
 	// Write the footer
-	outfile.WriteString(footer)
+	output.WriteFooter()
 
 	// The end
 	print(r, w, s, t, "", time.Since(now).Seconds())
