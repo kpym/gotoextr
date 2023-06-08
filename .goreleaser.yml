@@ -1,4 +1,4 @@
-project_name: hist2geo
+project_name: gotoextr
 before:
   hooks:
     - go mod download

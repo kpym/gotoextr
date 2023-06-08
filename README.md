@@ -1,12 +1,12 @@
-# hist2geo
+# gotoextr
 Small and durty program to extract GPX data from Google Location History.
 
 ## Usage
 
 1. Download your location history from [Google Takeout](https://takeout.google.com/settings/takeout) as `zip` archive.
-2. Run `hist2geo` with the downloaded archive as argument. For example to extract data for January 1, 2023 run:
+2. Run `gotoextr` with the downloaded archive as argument. For example to extract data for January 1, 2023 run:
 ```bash
-hist2geo -s 2023-01-01 takeout-20230501T000000Z-001.zip
+gotoextr -s 2023-01-01 takeout-20230501T000000Z-001.zip
 ``` 
 The output will be written to the file `history_2023-01-01.gpx`.
 
@@ -15,11 +15,11 @@ You can also manually extract `Records.json` and use it as parameter. Once extra
 ### Help message
 
 ```
-$ hist2geo.exe -h
-hist2geo [version: x.y.z] extract history data from Google Location History.
+$ gotoextr.exe -h
+gotoextr [version: x.y.z] extract history data from Google Location History.
 
 Usage:
-  hist2geo [-h] -s <start> [options] <input>
+  gotoextr [-h] -s <start> [options] <input>
 
 Options:
   -h --help              Show this screen.
@@ -33,16 +33,16 @@ Options:
   <input>                Input file name (zip or json)
 
 Examples:
-  hist2geo -s 2012-01-01 -e 2012-01-31 -a 40 takeout.zip
+  gotoextr -s 2012-01-01 -e 2012-01-31 -a 40 takeout.zip
 ```
 
 ## Installation
 
-You can download the latest binary from the [releases](github.com/kpym/hist2geo/releases) page.
+You can download the latest binary from the [releases](github.com/kpym/gotoextr/releases) page.
 
 Or you can install it from source:
 ```bash
-go install github.com/kpym/hist2geo@latest
+go install github.com/kpym/gotoextr@latest
 ```
 
 ## Why? 

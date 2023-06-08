@@ -1,4 +1,4 @@
-module github.com/kpym/hist2gpx
+module github.com/kpym/gotoextr
 
 go 1.20
 
