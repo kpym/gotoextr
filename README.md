@@ -1,9 +1,11 @@
 # gotoextr
-Small and durty program to extract GPX data from Google Location History.
+Small and durty program to extract GPX data from [Google Takeout Location History](https://takeout.google.com/settings/takeout/custom/location_history). 
+
+Hence the name: **Go**ogle **T**ake**o**ut Location History **Extr**actor → `gotoextr`.
 
 ## Usage
 
-1. Download your location history from [Google Takeout](https://takeout.google.com/settings/takeout) as `zip` archive.
+1. Download your location history from [Google Takeout](https://takeout.google.com/settings/takeout/custom/location_history) as `zip` archive.
 2. Run `gotoextr` with the downloaded archive as argument. For example to extract data for January 1, 2023 run:
 ```bash
 gotoextr -s 2023-01-01 takeout-20230501T000000Z-001.zip
