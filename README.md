@@ -18,6 +18,14 @@ Or you can install it from source:
 go install github.com/kpym/hist2geo@latest
 ```
 
+## Why? 
+
+I use my travel history to geotag my photos. I often use a tracking application to record my positions, but occasionally (often?) I forget to launch it. In this case, Google Takout (Location history) helps me by extracting my tracks in GPX format.
+
+## Inspiration. 
+
+This software is strongly inspired by [location-history-json-converter](https://github.com/Scarygami/location-history-json-converter). But as this pyton application is rather slow, I decided to make one in go, which is 10x faster. The original application is also more complete, I only implemented the features I needed.
+
 ## License
 
 [MIT](LICENSE)

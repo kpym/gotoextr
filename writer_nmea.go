@@ -54,6 +54,15 @@ func CRC(s string) string {
 	return fmt.Sprintf("%02X", crc)
 }
 
+// AccuracyToHDOP converts accuracy to HDOP
+// this conversion is only approximate
+// there is no exact conversion from accuracy to HDOP
+// so I use the formula: HDOP = accuracy / 4
+func AccuracyToHDOP(accuracy IntString) string {
+	acc, _ := strconv.ParseFloat(string(accuracy), 32)
+	return fmt.Sprintf("%.1f", acc/4)
+}
+
 // NMEA convert location to GPGGA and GPRMC NMEA sentences
 func NMEA(l Location) string {
 	// convert timestamp to NMEA format
@@ -66,7 +75,7 @@ func NMEA(l Location) string {
 	// latitude and longitude in NMEA format
 	lat, lon := latE7nmea(l.LatitudeE7), lonE7nmea(l.LongitudeE7)
 	// convert latitude to NMEA format
-	gpgga := fmt.Sprintf("GPGGA,%s,%s,%s,1,04,%s,0,M,,,,0000", t, lat, lon, l.Accuracy)
+	gpgga := fmt.Sprintf("GPGGA,%s,%s,%s,1,04,%s,0,M,,,,0000", t, lat, lon, AccuracyToHDOP(l.Accuracy))
 	gprmc := fmt.Sprintf("GPRMC,%s,A,%s,%s,0.0,0.0,%s,,,A", t, lat, lon, d)
 	return fmt.Sprintf("$%s*%s\n$%s*%s", gpgga, CRC(gpgga), gprmc, CRC(gprmc))
 }
