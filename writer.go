@@ -26,8 +26,23 @@ type Writer interface {
 	Flush() error
 }
 
+const (
+	zero8 IntString = "00000000"
+)
+
 // e7toDec converts a latitude or longitude from e7 format to decimal
 func e7toDec(e7 IntString) string {
+	if e7 == "" {
+		return "0.0000000"
+	}
+	if e7[0] == '-' {
+		return "-" + e7toDec(e7[1:])
+	}
+	lene7 := len(e7)
+	if lene7 < 8 {
+		e7 = zero8[:8-lene7] + e7
+		lene7 = 8
+	}
 	return string(e7[:len(e7)-7] + "." + e7[len(e7)-7:])
 }
 
