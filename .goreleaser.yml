@@ -1,3 +1,7 @@
+# I moved to version 2 because the github runner says that only version 2 is supported
+# Check : https://goreleaser.com/deprecations/
+version: 2
+
 project_name: gotoextr
 before:
   hooks:
@@ -30,7 +34,7 @@ archives:
 checksum:
   name_template: 'checksums.txt'
 snapshot:
-  name_template: "{{ .Tag }}"
+  version_template: "{{ .Tag }}"
 changelog:
   sort: asc
   filters:
