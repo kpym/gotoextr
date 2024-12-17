@@ -29,7 +29,9 @@ func TestE7toDec(t *testing.T) {
 		{"0987654321", "098.7654321"},
 		{"987654321", "98.7654321"},
 		{"87654321", "8.7654321"},
-		{"7654321", ".7654321"},
+		{"7654321", "0.7654321"},
+		{"54321", "0.0054321"},
+		{"", "0.0000000"},
 	}
 
 	for _, d := range data {
@@ -68,17 +70,39 @@ func TestSameDigits(t *testing.T) {
 		b      IntString
 		expect int
 	}{
-		{"987654321", "987654321", 7},
-		{"987654321", "987654021", 4},
-		{"987654321", "987650321", 3},
-		{"987654321", "980654321", 0},
-		{"987654321", "907650321", -1},
-		{"987654321", "87650321", -2},
+		{"987654321", "987654321", 7}, // all digits are the same
+		{"987654321", "987654021", 4}, // the 5th digit is different
+		{"987654321", "987650321", 3}, // the 4th digit is different
+		{"987654321", "980654321", 0}, // the first digit is different
+		{"987654321", "907654321", 0}, // not the same integer part
+		{"987654321", "87654321", 0},  // not the same integer part
+		{"987654321", "7654321", 0},   // not the same integer part
+		{"987654321", "654321", 0},    // not a valid IntString
+		{"654321", "654321", 0},       // not a valid IntString
 	}
 
 	for _, d := range data {
 		if sameDigits(d.a, d.b) != d.expect {
 			t.Errorf("samePrecision(%s, %s) = %d != %d", d.a, d.b, sameDigits(d.a, d.b), d.expect)
+		}
+	}
+}
+
+func TestWithoutTimeZone(t *testing.T) {
+	data := []struct {
+		in  string
+		out string
+	}{
+		{"2015-01-01T00:00:00Z", "2015-01-01T00:00:00Z"},
+		{"2015-01-31T23:59:59", "2015-01-31T23:59:59"},
+		{"2015-12-31T23:59:59+03:00", "2015-12-31T20:59:59Z"},
+		{"2015-12-31T23:59:59-03:00", "2016-01-01T02:59:59Z"},
+	}
+
+	for _, d := range data {
+		got := toUTC(d.in)
+		if got != d.out {
+			t.Errorf("withoutTimeZone(%s) = %s != %s", d.in, got, d.out)
 		}
 	}
 }

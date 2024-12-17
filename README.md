@@ -1,9 +1,19 @@
 # gotoextr
-Small and durty program to extract GPX data from [Google Takeout Location History](https://takeout.google.com/settings/takeout/custom/location_history). 
+Small and dirty program to extract GPX data from [Google Takeout Location History](https://takeout.google.com/settings/takeout/custom/location_history). 
 
 Hence the name: **Go**ogle **T**ake**o**ut Location History **Extr**actor → `gotoextr`.
 
 ## Usage
+
+### After 2024
+
+1. Download your location history from your phone : Settin → Location → Location Services → Time Line →  Export Timeline Data.
+2. Run `gotoextr` with the downloaded .json file as argument. For example to extract data for January 1, 2025 run:
+```bash
+gotoextr -s 2025-01-01 myhistory.json
+```
+
+### Before 2024
 
 1. Download your location history from [Google Takeout](https://takeout.google.com/settings/takeout/custom/location_history) as `zip` archive.
 2. Run `gotoextr` with the downloaded archive as argument. For example to extract data for January 1, 2023 run:
@@ -49,11 +59,17 @@ go install github.com/kpym/gotoextr@latest
 
 ## Why? 
 
-I use my travel history to geotag my photos. I often use a tracking application to record my positions, but occasionally (often?) I forget to launch it. In this case, Google Takout (Location history) helps me by extracting my tracks in GPX format.
+I use my travel history to geotag my photos. I often use a tracking application to record my positions, but occasionally (often?) I forget to launch it. In this case, Google Takeout (Location history) helps me by extracting my tracks in GPX format.
+
+## How does it work?
+
+This program reads the location history data from a json file and extracts the data for a given date range. The json format exported from the phone is not the same as the one from Google Takeout, but the program can handle both.
+
+For more details on the format of the json file, check the [file format](file_format.md) description.
 
 ## Inspiration
 
-This software is strongly inspired by [location-history-json-converter](https://github.com/Scarygami/location-history-json-converter) 🙏. But since the pyton application is rather slow, I decided to make one in go that is about  10x faster. The original application is also more complete, I only implemented the features I needed.
+This software is strongly inspired by [location-history-json-converter](https://github.com/Scarygami/location-history-json-converter) 🙏. But since the python application is rather slow, I decided to make one in go that is about  10x faster. The original application is also more complete, I only implemented the features I needed.
 
 ## License
 

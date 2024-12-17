@@ -1,3 +1,4 @@
+// Before 2024
 // Read Records.json and extract history data.
 // The input date is json with the following format
 // {
@@ -13,8 +14,32 @@
 //	  ...
 //
 // ]
+//
 // The file is very large, so we read it using json.Decoder.
 // If the file is .zip (smaller) we try to read it in memory.
+//
+// Since 2024.
+// We can export the location history from an Android device to a JSON file.
+// The JSON file has the following format:
+//
+//	{
+//	  ...
+//	  "rawSignals": [
+//	    {
+//	      ...
+//	      "position": {
+//	        "LatLng": "50.6443831°, 3.0536723°",
+//	        "accuracyMeters": 13,
+//	        "altitudeMeters": 65.30000305175781,
+//	        "source": "UNKNOWN",
+//	        "timestamp": "2024-12-07T17:46:25.000+01:00",
+//	        "speedMetersPerSecond": 0.0
+//	      }
+//	      ,
+//	      ...
+//	    }
+//	  ]
+//	}
 package main
 
 import (
@@ -24,7 +49,6 @@ import (
 	"fmt"
 	"io"
 	"os"
-	"strconv"
 	"strings"
 	"time"
 
@@ -75,12 +99,113 @@ func (i *IntString) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
+type latlon struct {
+	Latitude  IntString
+	Longitude IntString
+}
+
+type posObject struct {
+	Position position `json:"position"`
+}
+
+type position struct {
+	LatLng    latlon    `json:"LatLng"`
+	Accuracy  IntString `json:"accuracyMeters"`
+	Timestamp string    `json:"timestamp"`
+}
+
+// coordToIntString converts a string "XX.XXXXXXX°" to an IntString
+func coordToIntString(s string) (IntString, error) {
+	// remove the °
+	s = strings.TrimSuffix(s, "°")
+	// split the string in two parts
+	parts := strings.Split(s, ".")
+	if len(parts) != 2 {
+		return "", fmt.Errorf("invalid coord %s", s)
+	}
+	// normalize the integer part
+	if len(parts[0]) == 0 {
+		parts[0] = "0"
+	}
+	// cut/pad the decimal part to 7 digits
+	if len(parts[1]) == 7 {
+		// nothing to do
+	} else if len(parts[1]) > 7 {
+		parts[1] = parts[1][:7]
+	} else {
+		parts[1] += strings.Repeat("0", 7-len(parts[1]))
+	}
+
+	// return the IntString
+	return IntString(parts[0] + parts[1]), nil
+}
+
+// Json unmashalling for latlon from "XX.XXXXXXX°,YY.YYYYYYY°"
+func (ll *latlon) UnmarshalJSON(data []byte) error {
+	var s string
+	err := json.Unmarshal(data, &s)
+	if err != nil {
+		return err
+	}
+	parts := strings.Split(s, ",")
+	if len(parts) != 2 {
+		return fmt.Errorf("invalid latlon %s", s)
+	}
+	ll.Latitude, err = coordToIntString(parts[0])
+	if err != nil {
+		return err
+	}
+	ll.Longitude, err = coordToIntString(parts[1])
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// toUTC convert RFC3339 to a string without the timezone ending with "Z"
+// example "2024-12-07T17:46:25.000+01:00" -> "2024-12-07T16:46:25.000Z"
+func toUTC(s string) string {
+	// if string do not contain a timezone (+ or -), return it
+	if !strings.ContainsAny(s, "+-") {
+		return s
+	}
+	t, err := time.Parse(time.RFC3339, s)
+	if err != nil {
+		return s
+	}
+	return t.UTC().Format(time.RFC3339)
+}
+
+// toLocation converts a position to a Location
+func (p *position) toLocation() Location {
+	return Location{
+		LatitudeE7:  p.LatLng.Latitude,
+		LongitudeE7: p.LatLng.Longitude,
+		Accuracy:    p.Accuracy,
+		Timestamp:   toUTC(p.Timestamp),
+	}
+}
+
 // check is a helper function to check for errors
 func check(err error) {
 	if err != nil {
 		fmt.Println("Error:", err)
 		os.Exit(1)
 	}
+}
+
+func getOldLocation(decoder *json.Decoder) (loc Location, err error) {
+	err = decoder.Decode(&loc)
+	return loc, err
+}
+
+func getNewLocation(decoder *json.Decoder) (Location, error) {
+	var pos posObject
+	err := decoder.Decode(&pos)
+	if err != nil {
+		return Location{}, err
+	}
+	return pos.Position.toLocation(), nil
 }
 
 // locBufSize is the size of the channel buffer for locations
@@ -91,13 +216,32 @@ func Read(reader io.Reader) chan Location {
 	// Create a decoder
 	decoder := json.NewDecoder(reader)
 
+	var version int
 	// Read up to the "locations" key
 	for {
 		t, err := decoder.Token()
 		check(err)
 		if t == "locations" {
+			// found the locations key, so old format
+			version = 1
 			break
 		}
+		if t == "rawSignals" {
+			// found the rawSignals key, so new format
+			version = 2
+			break
+		}
+	}
+
+	// old or new format
+	var getLocation func(*json.Decoder) (Location, error)
+	switch version {
+	case 1:
+		getLocation = getOldLocation
+	case 2:
+		getLocation = getNewLocation
+	default:
+		check(fmt.Errorf("unknown json version"))
 	}
 
 	// Read the array start
@@ -110,14 +254,15 @@ func Read(reader io.Reader) chan Location {
 	// Create a channel to send the locations
 	locations := make(chan Location, locBufSize)
 
+	// Start a goroutine to read the array
 	go func() {
 		// start reading the array
 		for decoder.More() {
-			var loc Location
-			err := decoder.Decode(&loc)
-			check(err)
-			// fmt.Printf("%+v\n", loc)
-			locations <- loc
+			loc, err := getLocation(decoder)
+			// skip invalid locations
+			if err == nil {
+				locations <- loc
+			}
 		}
 		// Close the channel when done
 		close(locations)
@@ -148,18 +293,24 @@ func acceptAccuracy(a IntString, max string) bool {
 // for example 987654321 which represent 98.7654321 and 987650321 which represent 98.7650321
 // have 3 decimal digits (after the point) in common
 func sameDigits(a, b IntString) int {
-	// convert with atoi
-	na, _ := strconv.Atoi(string(a))
-	nb, _ := strconv.Atoi(string(b))
-	if na == nb {
-		return 7
+	na := len(a)
+	nb := len(b)
+	if na != nb || na < 7 {
+		// the coordinates are not the same length or invalid IntString
+		return 0
 	}
-	diff := na - nb
-	if diff < 0 {
-		diff = -diff
+	if a[:na-7] != b[:nb-7] {
+		// the integer part is different
+		return 0
 	}
-	strDiff := strconv.Itoa(diff)
-	return 7 - len(strDiff)
+	n := 0
+	for i := na - 7; i < na; i++ {
+		if a[i] != b[i] {
+			break
+		}
+		n++
+	}
+	return n
 }
 
 func main() {
@@ -244,6 +395,9 @@ func main() {
 				check(err)
 				break
 			}
+		}
+		if input == nil {
+			check(fmt.Errorf("file 'Records.json' not found in '%s'", inputname))
 		}
 	} else {
 		// if the file is not a zip, it should be the Records.json file
