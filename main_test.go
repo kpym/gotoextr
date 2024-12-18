@@ -106,3 +106,31 @@ func TestWithoutTimeZone(t *testing.T) {
 		}
 	}
 }
+
+func TestToLocation(t *testing.T) {
+	data := []struct {
+		in  position
+		out Location
+	}{
+		{
+			position{
+				LatLng:    latlng{"501234567", "87654321"},
+				Accuracy:  "5",
+				Timestamp: "2015-01-01T00:00:00+01:00",
+			},
+			Location{
+				LatitudeE7:  "501234567",
+				LongitudeE7: "87654321",
+				Accuracy:    "5",
+				Timestamp:   "2014-12-31T23:00:00Z",
+			},
+		},
+	}
+
+	for _, d := range data {
+		got := d.in.toLocation()
+		if got != d.out {
+			t.Errorf("toLocation(%v) = %v != %v", d.in, got, d.out)
+		}
+	}
+}

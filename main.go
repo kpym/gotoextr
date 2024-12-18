@@ -99,7 +99,7 @@ func (i *IntString) UnmarshalJSON(data []byte) error {
 	return nil
 }
 
-type latlon struct {
+type latlng struct {
 	Latitude  IntString
 	Longitude IntString
 }
@@ -109,12 +109,12 @@ type posObject struct {
 }
 
 type position struct {
-	LatLng    latlon    `json:"LatLng"`
+	LatLng    latlng    `json:"LatLng"`
 	Accuracy  IntString `json:"accuracyMeters"`
 	Timestamp string    `json:"timestamp"`
 }
 
-// coordToIntString converts a string "XX.XXXXXXX°" to an IntString
+// coordToIntString converts a string "XX.XXXXXXX°" to an IntString of E7 format
 func coordToIntString(s string) (IntString, error) {
 	// remove the °
 	s = strings.TrimSuffix(s, "°")
@@ -140,8 +140,8 @@ func coordToIntString(s string) (IntString, error) {
 	return IntString(parts[0] + parts[1]), nil
 }
 
-// Json unmashalling for latlon from "XX.XXXXXXX°,YY.YYYYYYY°"
-func (ll *latlon) UnmarshalJSON(data []byte) error {
+// Json unmashalling for latlng from "XX.XXXXXXX°,YY.YYYYYYY°"
+func (ll *latlng) UnmarshalJSON(data []byte) error {
 	var s string
 	err := json.Unmarshal(data, &s)
 	if err != nil {
@@ -149,7 +149,7 @@ func (ll *latlon) UnmarshalJSON(data []byte) error {
 	}
 	parts := strings.Split(s, ",")
 	if len(parts) != 2 {
-		return fmt.Errorf("invalid latlon %s", s)
+		return fmt.Errorf("invalid LatLng %s", s)
 	}
 	ll.Latitude, err = coordToIntString(parts[0])
 	if err != nil {

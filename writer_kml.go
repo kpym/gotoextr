@@ -17,7 +17,7 @@ const (
 			<ExtendedData>
 				<Data name="accuracy"><value>{{ .Accuracy }}</value></Data>
 			</ExtendedData>
-			<Point><coordinates>{{ .LatitudeE7 | e7todec }},{{ .LongitudeE7 | e7todec }}</coordinates></Point>
+			<Point><coordinates>{{ .LongitudeE7 | e7todec }},{{ .LatitudeE7 | e7todec }}</coordinates></Point>
 		</Placemark>`
 	kmlFooter = `
 	</Document>
