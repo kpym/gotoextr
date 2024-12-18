@@ -205,6 +205,9 @@ func getNewLocation(decoder *json.Decoder) (Location, error) {
 	if err != nil {
 		return Location{}, err
 	}
+	if pos.Position.Timestamp == "" {
+		return Location{}, fmt.Errorf("missing timestamp")
+	}
 	return pos.Position.toLocation(), nil
 }
 
