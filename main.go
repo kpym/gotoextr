@@ -223,6 +223,9 @@ func Read(reader io.Reader) chan Location {
 	// Read up to the "locations" key
 	for {
 		t, err := decoder.Token()
+		if err == io.EOF {
+			break
+		}
 		check(err)
 		if t == "locations" {
 			// found the locations key, so old format
